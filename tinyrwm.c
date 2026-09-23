@@ -315,6 +315,75 @@ void arrange(struct Output* m)
     if (m->lt && m->lt->arrange) m->lt->arrange(m);
 }
 
+/* Tile layout - master/stack arrangement
+ *
+ * Master area on the left, stack area on the right:
+ *
+ * With nmaster=1:
+ * ┌───────────┬────┐
+ * │           │ W2 │
+ * │    W1     ├────┤
+ * │  (master) │ W3 │
+ * │           ├────┤
+ * │           │ W4 │
+ * └───────────┴────┘
+ *
+ * Master width is controlled by mfact (0.5 = 50% of screen)
+ */
+static void tile(struct Output* m)
+{
+    unsigned int i, n;  // iterator, number of tiled windows
+    int h;              // calculated window height
+    int mw;             // master area width
+    int my, ty;         // master y, stack y (running y positions)
+    struct Window* w;
+
+    // Count tiled windows
+    n = 0;
+    wl_list_for_each(w, &m->clients, tile_link)
+    {
+        if (!w->isfloating && !w->closed) n++;
+    }
+
+    // No tiled windows - nothing to do
+    if (n == 0) return;
+
+    // Calculate master area width
+    // If we have more windows than nmaster, split the screen
+    // Otherwise, master takes full width
+    if (n > nmaster)
+        mw = nmaster ? m->ww * mfact : 0;
+    else
+        mw = m->ww;
+
+    // Position windows
+    i = 0;
+    my = 0;  // Master area y offset
+    ty = 0;  // Stack area y offset
+
+    wl_list_for_each(w, &m->clients, tile_link)
+    {
+        // Skip floating and closed windows
+        if (w->isfloating || w->closed) continue;
+
+        if (i < nmaster)
+        {
+            // Master area windows (left side)
+            h = (m->wh - my) / (MIN(n, nmaster) - i);
+            resize(w, m->wx, m->wy + my, mw, h);
+            my += h;
+        }
+        else
+        {
+            // Stack area windows (right side)
+            h = (m->wh - ty) / (n - i);
+            resize(w, m->wx + mw, m->wy + ty, m->ww - mw, h);
+            ty += h;
+        }
+        i++;
+    }
+}
+
 static void seat_pointer_move(struct Seat* seat, struct Window* window);
 static void seat_pointer_resize(struct Seat* seat, struct Window* window, uint32_t edges);
 
