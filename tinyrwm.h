@@ -54,6 +54,12 @@ struct Output
     struct river_output_v1* obj;
     bool removed;
     struct wl_list link;  // WindowManager.outputs
+
+    /// Head of the tile list (for tiling order)
+    struct wl_list clients;
+
+    /// Head of the stack list (for focus/Z-order)
+    struct wl_list stack;
 };
 
 /* Window structure */
@@ -83,12 +89,12 @@ struct Window
 
     /// The next and previous client in the client list, which is a linked list. The client list
     /// controls the order in which clients are tiled.
-    Client* tile_link;
+    struct wl_list tile_link;
 
     /* The next and previous client in the stacking order list, which is also a linked list. The
      * stacking order indicates which window is on top of others as well as the order in which
      * clients had focus. */
-    Client* stack_link;
+    struct wl_list stack_link;
 };
 
 typedef struct Workspace
@@ -256,11 +262,15 @@ extern struct WindowManager wm;
 extern struct river_window_manager_v1* window_manager_v1;
 extern struct river_xkb_bindings_v1* xkb_bindings_v1;
 
-/* Tiling configuration */
-extern unsigned int nmaster;
-extern float mfact;
-
 /* Function declarations */
 struct Window* nexttiled(struct Window* w);
+void attach(struct Window* w);
+void detach(struct Window* w);
+void attachstack(struct Window* w);
+void detachstack(struct Window* w);
+void attach(struct Window* w);
+void detach(struct Window* w);
+void attachstack(struct Window* w);
+void detachstack(struct Window* w);
 
 #endif  // TINYRWM_H

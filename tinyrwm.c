@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: © 2026 Isaac Freund
 // SPDX-License-Identifier: 0BSD
 
+#include "tinyrwm.h"
+
 #include <linux/input-event-codes.h>
 #include <river-window-management-v1-client-protocol.h>
 #include <river-xkb-bindings-v1-client-protocol.h>
@@ -12,17 +14,13 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon.h>
 
-#include "tinyrwm.h"
+#include "config.h"
 #include "util.h"
 
 /* Global variables */
 struct WindowManager wm;
 struct river_window_manager_v1* window_manager_v1;
 struct river_xkb_bindings_v1* xkb_bindings_v1;
-
-/* Tiling configuration */
-unsigned int nmaster = 1;     /* number of clients in master area */
-float mfact = 0.5;            /* master area size [0.05..0.95] */
 
 static void output_handle_removed(void* data, struct river_output_v1* obj)
 {
@@ -62,14 +60,51 @@ static void output_maybe_destroy(struct Output* output)
     free(output);
 }
 
-/* Returns the next tiled (non-floating, non-closed) window in the list */
+/* This returns the next tiled client on the currently selected tag(s).
+ *
+ * Given an input client c the function returns the next visible tiled client in the list, or NULL
+ * if there are no more subsequent tiled clients.
+ */
 struct Window* nexttiled(struct Window* w)
 {
-    for (; w && (w->isfloating || w->closed); w = wl_container_of(w->link.next, w, link))
+    if (!w || !w->mon)
+        return NULL;
+
+    for (; w && (w->isfloating || w->closed); w = wl_container_of(w->tile_link.next, w, tile_link))
     {
-        if (w->link.next == &wm.windows) return NULL;
+        // Check if we've reached the end of the list
+        if (w->tile_link.next == &w->mon->clients)
+            return NULL;
     }
     return w;
+}
+
+/* Attach window to the beginning of the tile list (makes it the new master) */
+void
+attach(struct Window* w)
+{
+    wl_list_insert(&w->mon->clients, &w->tile_link);
+}
+
+/* Detach window from the tile list */
+void
+detach(struct Window* w)
+{
+    wl_list_remove(&w->tile_link);
+}
+
+/* Attach window to the beginning of the stack (focus) list */
+void
+attachstack(struct Window* w)
+{
+    wl_list_insert(&w->mon->stack, &w->stack_link);
+}
+
+/* Detach window from the stack (focus) list */
+void
+detachstack(struct Window* w)
+{
+    wl_list_remove(&w->stack_link);
 }
 
 static void window_handle_closed(void* data, struct river_window_v1* obj)
