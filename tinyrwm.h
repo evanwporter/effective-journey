@@ -58,7 +58,7 @@ struct Output
     /// Head of the tile list (for tiling order)
     struct wl_list clients;
 
-    /// Head of the stack list (for focus/Z-order)
+    /// Head of the focus stack list
     struct wl_list stack;
 };
 
@@ -228,8 +228,15 @@ struct Seat
     bool new;
     bool removed;
 
+    /// The monitor this seat is currently focused on
+    struct Output* mon;
+
+    /// The window that has keyboard focus
     struct Window* focused;
+
+    /// The window the pointer is over
     struct Window* hovered;
+
     struct Window* interacted;
 
     struct wl_list xkb_bindings;      // XkbBinding

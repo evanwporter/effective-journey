@@ -67,42 +67,36 @@ static void output_maybe_destroy(struct Output* output)
  */
 struct Window* nexttiled(struct Window* w)
 {
-    if (!w || !w->mon)
-        return NULL;
+    if (!w || !w->mon) return NULL;
 
     for (; w && (w->isfloating || w->closed); w = wl_container_of(w->tile_link.next, w, tile_link))
     {
         // Check if we've reached the end of the list
-        if (w->tile_link.next == &w->mon->clients)
-            return NULL;
+        if (w->tile_link.next == &w->mon->clients) return NULL;
     }
     return w;
 }
 
 /* Attach window to the beginning of the tile list (makes it the new master) */
-void
-attach(struct Window* w)
+void attach(struct Window* w)
 {
     wl_list_insert(&w->mon->clients, &w->tile_link);
 }
 
 /* Detach window from the tile list */
-void
-detach(struct Window* w)
+void detach(struct Window* w)
 {
     wl_list_remove(&w->tile_link);
 }
 
 /* Attach window to the beginning of the stack (focus) list */
-void
-attachstack(struct Window* w)
+void attachstack(struct Window* w)
 {
     wl_list_insert(&w->mon->stack, &w->stack_link);
 }
 
 /* Detach window from the stack (focus) list */
-void
-detachstack(struct Window* w)
+void detachstack(struct Window* w)
 {
     wl_list_remove(&w->stack_link);
 }
@@ -449,14 +443,35 @@ static void seat_maybe_destroy(struct Seat* seat)
     free(seat);
 }
 
+/* Give focus to a given window. This will window will be placed on top of the stack.
+ *
+ * If the given window is NULL then it will be given to the first visible window in the stacking
+ order. What this means is that the window that last had focus will receive input focus.
+ */
 static void seat_focus(struct Seat* seat, struct Window* window)
 {
-    // Focus the top window (if any) when there is no explicit target.
-    if (window == NULL && !wl_list_empty(&wm.windows))
+    // If no monitor assigned yet, pick the first one
+    if (seat->mon == NULL && !wl_list_empty(&wm.outputs))
     {
-        window = wl_container_of(wm.windows.prev, window, link);
+        seat->mon = wl_container_of(wm.outputs.next, seat->mon, link);
     }
 
+    // If no window specified, try to find the top window from the monitor's stack
+    if (window == NULL && seat->mon && !wl_list_empty(&seat->mon->stack))
+    {
+        // Find first valid window from monitor's stack (most recently focused)
+        struct Window* w;
+        wl_list_for_each(w, &seat->mon->stack, stack_link)
+        {
+            if (!w->closed && !w->isfloating)
+            {
+                window = w;
+                break;
+            }
+        }
+    }
+
+    // Already focused - nothing to do
     if (seat->focused == window)
     {
         return;
@@ -464,13 +479,30 @@ static void seat_focus(struct Seat* seat, struct Window* window)
 
     if (window != NULL)
     {
+        // Update seat's monitor if window is on a different monitor
+        if (window->mon && window->mon != seat->mon)
+        {
+            seat->mon = window->mon;
+        }
+
+        // Move to top of stack (focus order)
+        // This makes it the most recently focused window
+        detachstack(window);
+        attachstack(window);
+
+        // Tell River compositor to give it keyboard focus
         river_seat_v1_focus_window(seat->obj, window->obj);
+
+        // Place it visually on top (Z-order)
         river_node_v1_place_top(window->node);
+
+        // Also update global window list order
         wl_list_remove(&window->link);
         wl_list_insert(wm.windows.prev, &window->link);
     }
     else
     {
+        // No window to focus - clear focus
         river_seat_v1_clear_focus(seat->obj);
     }
 
@@ -736,6 +768,7 @@ static void wm_handle_seat(void* data,
     struct Seat* seat = ecalloc(1, sizeof(struct Seat));
     seat->obj = river_seat;
     seat->new = true;
+    seat->mon = NULL;  // Will be set to first output when needed
     wl_list_init(&seat->xkb_bindings);
     wl_list_init(&seat->pointer_bindings);
 
