@@ -32,6 +32,7 @@ struct Window
 
     bool new;
     bool closed;
+    bool isfloating;
 
     int32_t x;
     int32_t y;
@@ -118,6 +119,10 @@ struct WindowManager wm;
 struct river_window_manager_v1* window_manager_v1;
 struct river_xkb_bindings_v1* xkb_bindings_v1;
 
+/* Tiling configuration */
+static unsigned int nmaster = 1; /* number of clients in master area */
+static float mfact = 0.5;        /* master area size [0.05..0.95] */
+
 static void output_handle_removed(void* data, struct river_output_v1* obj)
 {
     struct Output* output = data;
@@ -154,6 +159,16 @@ static void output_maybe_destroy(struct Output* output)
     river_output_v1_destroy(output->obj);
     wl_list_remove(&output->link);
     free(output);
+}
+
+/* Returns the next tiled (non-floating, non-closed) window in the list */
+static struct Window* nexttiled(struct Window* w)
+{
+    for (; w && (w->isfloating || w->closed); w = wl_container_of(w->link.next, w, link))
+    {
+        if (w->link.next == &wm.windows) return NULL;
+    }
+    return w;
 }
 
 static void window_handle_closed(void* data, struct river_window_v1* obj)
