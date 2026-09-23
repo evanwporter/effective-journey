@@ -32,14 +32,32 @@ static void output_handle_removed(void* data, struct river_output_v1* obj)
 static void output_handle_wl_output(void* data, struct river_output_v1* obj, uint32_t name)
 {
 }
+
 static void output_handle_position(void* data, struct river_output_v1* obj, int32_t x, int32_t y)
 {
+    struct Output* output = data;
+    output->mx = x;
+    output->my = y;
+
+    // Window area position
+    // TODO: Bar
+    output->wx = x;
+    output->wy = y;
 }
+
 static void output_handle_dimensions(void* data,
                                      struct river_output_v1* obj,
                                      int32_t width,
                                      int32_t height)
 {
+    struct Output* output = data;
+    output->mw = width;
+    output->mh = height;
+
+    // Window area dimensions
+    // TODO: Bar
+    output->ww = width;
+    output->wh = height;
 }
 
 const struct river_output_v1_listener river_output_listener = {
@@ -248,6 +266,30 @@ static void window_set_position(struct Window* window, int32_t x, int32_t y)
     river_node_v1_set_position(window->node, x, y);
     window->x = x;
     window->y = y;
+}
+
+/* Resize a window to the given position and dimensions */
+void resize(struct Window* w, const int x, const int y, const int width, const int height)
+{
+    if (!w) return;
+
+    // Update window's position
+    window_set_position(w, x, y);
+
+    // Tell River compositor to resize the window
+    // The actual dimensions will be set by window_handle_dimensions callback
+    river_window_v1_propose_dimensions(w->obj, width, height);
+}
+
+/* Arrange windows on an output using its current layout */
+void arrange(struct Output* m)
+{
+    // TODO: if its NULL there rearrange all windows
+    if (!m) return;
+
+    // Call the layout's arrange function if it has one
+    // (NULL means floating layout - no automatic arrangement)
+    if (m->lt && m->lt->arrange) m->lt->arrange(m);
 }
 
 static void seat_pointer_move(struct Seat* seat, struct Window* window);
@@ -744,9 +786,31 @@ static void wm_handle_window(void* data,
     window->node = river_window_v1_get_node(window->obj);
     window->new = true;
 
+    // Initialize the window's list links
+    wl_list_init(&window->tile_link);
+    wl_list_init(&window->stack_link);
+
+    // Assign to first available monitor
+    if (!wl_list_empty(&wm.outputs))
+    {
+        window->mon = wl_container_of(wm.outputs.next, window->mon, link);
+    }
+    else
+    {
+        window->mon = NULL;
+    }
+
     river_window_v1_add_listener(window->obj, &river_window_listener, window);
 
+    // Add to global window list
     wl_list_insert(wm.windows.prev, &window->link);
+
+    // If we have a monitor, attach to its lists
+    if (window->mon)
+    {
+        attach(window);
+        attachstack(window);
+    }
 }
 
 static void wm_handle_output(void* data,
@@ -755,6 +819,13 @@ static void wm_handle_output(void* data,
 {
     struct Output* output = ecalloc(1, sizeof(struct Output));
     output->obj = river_output;
+
+    // Initialize the client list (tile order) and stack list (focus order)
+    wl_list_init(&output->clients);
+    wl_list_init(&output->stack);
+
+    // Set default layout (first in layouts array - tiling)
+    output->lt = &layouts[0];
 
     river_output_v1_add_listener(output->obj, &river_output_listener, output);
 

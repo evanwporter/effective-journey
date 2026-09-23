@@ -19,6 +19,15 @@ struct river_pointer_binding_v1;
 struct river_window_manager_v1;
 struct river_xkb_bindings_v1;
 
+/* Forward declare Output for Layout */
+struct Output;
+
+/* Layout structure - defines a window layout */
+typedef struct {
+    const char *symbol;                  /* Symbol to display (e.g., "[]=", "><>") */
+    void (*arrange)(struct Output *);    /* Layout function pointer */
+} Layout;
+
 /* Output structure */
 struct Output
 {
@@ -60,6 +69,9 @@ struct Output
 
     /// Head of the focus stack list
     struct wl_list stack;
+
+    /// Current layout for this output
+    const Layout* lt;
 };
 
 /* Window structure */
@@ -275,6 +287,8 @@ void attach(struct Window* w);
 void detach(struct Window* w);
 void attachstack(struct Window* w);
 void detachstack(struct Window* w);
+void resize(struct Window* w, int x, int y, int width, int height);
+void arrange(struct Output* m);
 void attach(struct Window* w);
 void detach(struct Window* w);
 void attachstack(struct Window* w);
