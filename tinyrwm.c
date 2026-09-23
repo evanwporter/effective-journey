@@ -268,6 +268,28 @@ static void window_set_position(struct Window* window, int32_t x, int32_t y)
     window->y = y;
 }
 
+/* Set borders on a window
+ *
+ * Must be called during a render sequence.
+ * focused=1 uses focused border color, focused=0 uses unfocused color.
+ */
+static void window_set_borders(struct Window* w, int focused)
+{
+    const unsigned int* colors = focused ? border_color_focused : border_color_unfocused;
+
+    // Set borders on all four edges
+    // https://isaacfreund.com/docs/wayland/river-window-management-v1/#river_window_v1.set_borders
+    river_window_v1_set_borders(w->obj,
+                                RIVER_WINDOW_V1_EDGES_TOP | RIVER_WINDOW_V1_EDGES_RIGHT |
+                                    RIVER_WINDOW_V1_EDGES_BOTTOM | RIVER_WINDOW_V1_EDGES_LEFT,
+                                borderpx,
+                                colors[0],  // R
+                                colors[1],  // G
+                                colors[2],  // B
+                                colors[3]   // A
+    );
+}
+
 /* Resize a window to the given position and dimensions */
 void resize(struct Window* w, const int x, const int y, const int width, const int height)
 {
@@ -285,6 +307,7 @@ void resize(struct Window* w, const int x, const int y, const int width, const i
 void arrange(struct Output* m)
 {
     // TODO: if its NULL there rearrange all windows
+    // TODO: set ltsymbol
     if (!m) return;
 
     // Call the layout's arrange function if it has one
