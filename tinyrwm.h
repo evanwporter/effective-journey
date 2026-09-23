@@ -66,17 +66,116 @@ struct Window
     bool closed;
     bool isfloating;
 
-    int32_t x;
-    int32_t y;
-    int32_t width;
-    int32_t height;
+    /// The client x, y coordinates and size (width, height).
+    int x, y, w, h;
 
     struct Seat* pointer_move_requested;
     struct Seat* pointer_resize_requested;
     uint32_t pointer_resize_requested_edges;
 
+    /// The monitor this client belongs to.
+    Output* mon;
+
+    /// The icon to display in the tabline / window titles
+    char* icon;
+
     struct wl_list link;  // WindowManager.windows
+
+    /// The next and previous client in the client list, which is a linked list. The client list
+    /// controls the order in which clients are tiled.
+    Client* tile_link;
+
+    /* The next and previous client in the stacking order list, which is also a linked list. The
+     * stacking order indicates which window is on top of others as well as the order in which
+     * clients had focus. */
+    Client* stack_link;
 };
+
+typedef struct Workspace
+{
+    /* This represents the number of clients that are to be tiled in the master area. This has
+     * no upper limit but cannot be less than 0. The default value is configured in the
+     * configuration file and the value is adjusted via the incnmaster function. */
+    //  Default nmaster = 1:
+    // ┌───────────┬────┐
+    // │           │ C2 │
+    // │    C1     ├────┤
+    // │  (master) │ C3 │
+    // │           ├────┤
+    // │           │ C4 │
+    // └───────────┴────┘
+    //
+    // With nmaster = 2:
+    // ┌───────────┬────┐
+    // │    C1     │ C3 │
+    // │  (master) ├────┤
+    // ├───────────┤ C4 │
+    // │    C2     ├────┤
+    // │ (also     │ C5 │
+    // │  master)  │    │
+    // └───────────┴────┘
+    /// Number of windows in master area
+    int nmaster;
+
+    /// What percentage of the screen master gets
+    float mfact;
+
+    /* The sellt variable is either 0 or 1 and represents the currently selected layout. This
+     * follows the same mechanism as seltags above giving patterns such a:
+     *
+     *    m->lt[m->sellt]
+     *    selmon->lt[selmon->sellt]
+     *    c->mon->lt[c->mon->sellt]
+     */
+    unsigned int sellt;
+
+    /* This array holds the previous and current layout for the monitor, the index of which is
+     * indicated by the sellt variable. */
+    const Layout* lt[2];
+
+    /* This holds the layout symbol text, typically as defined in the layouts array. This is
+     * used when drawing the layout symbol on the bar. The reason why this is defined for the
+     * monitor rather than simply using the layout symbol as defined in the layouts array is
+     * that some layouts, like the monocle layout for example, may alter the layout symbol
+     * depending on how many clients are present. */
+    char ltsymbol[16];
+
+    /* Internal flag indicating whether the bar is shown or not. */
+    int showbar;
+
+    /* Internal flag indicating whether the bar is shown at the top or at the bottom. */
+    int topbar;
+
+    /// The tag root tree node
+    TreeNode* root;
+} Workspace;
+
+/* The definition of a rule, used in the configuration file when setting up client rules.
+ *
+ * static const Rule rules[] = {
+ *    // xprop(1):
+ *    //    WM_CLASS(STRING) = instance, class
+ *    //    WM_NAME(STRING) = title
+ *    //
+ *    // class      instance    title       tags mask     isfloating   monitor
+ *    { "Gimp",     NULL,       NULL,       0,            1,           -1 },
+ *    { "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
+ * };
+ *
+ * See the applyrules function for how the rules are applied.
+ */
+typedef struct
+{
+    const char* class;
+    const char* instance;
+    const char* title;
+    unsigned int workspace;
+    int isfloating;
+    int isterminal;
+    int noswallow;
+    int monitor;
+    char* icon;
+} Rule;
 
 /* Action enumeration for key/pointer bindings */
 enum Action

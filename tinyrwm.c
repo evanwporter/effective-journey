@@ -5,123 +5,24 @@
 #include <river-window-management-v1-client-protocol.h>
 #include <river-xkb-bindings-v1-client-protocol.h>
 #include <signal.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <wayland-client-core.h>
-#include <wayland-client-protocol.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "tinyrwm.h"
 #include "util.h"
 
-struct Output
-{
-    struct river_output_v1* obj;
-    bool removed;
-    struct wl_list link;  // WindowManager.outputs
-};
-
-struct Window
-{
-    struct river_window_v1* obj;
-    struct river_node_v1* node;
-
-    bool new;
-    bool closed;
-    bool isfloating;
-
-    int32_t x;
-    int32_t y;
-    int32_t width;
-    int32_t height;
-
-    struct Seat* pointer_move_requested;
-    struct Seat* pointer_resize_requested;
-    uint32_t pointer_resize_requested_edges;
-
-    struct wl_list link;  // WindowManager.windows
-};
-
-enum Action
-{
-    ACTION_NONE,
-    ACTION_SPAWN_FOOT,
-    ACTION_CLOSE,
-    ACTION_FOCUS_NEXT,
-    ACTION_MOVE,
-    ACTION_RESIZE,
-    ACTION_EXIT,
-};
-
-struct XkbBinding
-{
-    struct river_xkb_binding_v1* obj;
-    struct Seat* seat;
-    enum Action action;
-    struct wl_list link;
-};
-
-struct PointerBinding
-{
-    struct river_pointer_binding_v1* obj;
-    struct Seat* seat;
-    enum Action action;
-    struct wl_list link;
-};
-
-enum SeatOp
-{
-    SEAT_OP_NONE,
-    SEAT_OP_MOVE,
-    SEAT_OP_RESIZE,
-};
-
-struct Seat
-{
-    struct river_seat_v1* obj;
-    bool new;
-    bool removed;
-
-    struct Window* focused;
-    struct Window* hovered;
-    struct Window* interacted;
-
-    struct wl_list xkb_bindings;      // XkbBinding
-    struct wl_list pointer_bindings;  // PointerBinding
-    enum Action pending_action;
-
-    enum SeatOp op;
-    // For SEAT_OP_MOVE and SEAT_OP_RESIZE
-    struct Window* op_window;
-    int32_t op_start_x, op_start_y;
-    int32_t op_dx, op_dy;
-    bool op_release;
-    // For SEAT_OP_RESIZE only
-    int32_t op_start_width, op_start_height;
-    uint32_t op_edges;
-
-    struct wl_list link;  // WindowManager.seats
-};
-
-struct WindowManager
-{
-    struct wl_list outputs;  // Output
-    struct wl_list windows;  // Window
-    struct wl_list seats;    // Seat
-};
-
+/* Global variables */
 struct WindowManager wm;
-
 struct river_window_manager_v1* window_manager_v1;
 struct river_xkb_bindings_v1* xkb_bindings_v1;
 
 /* Tiling configuration */
-static unsigned int nmaster = 1; /* number of clients in master area */
-static float mfact = 0.5;        /* master area size [0.05..0.95] */
+unsigned int nmaster = 1;     /* number of clients in master area */
+float mfact = 0.5;            /* master area size [0.05..0.95] */
 
 static void output_handle_removed(void* data, struct river_output_v1* obj)
 {
@@ -162,7 +63,7 @@ static void output_maybe_destroy(struct Output* output)
 }
 
 /* Returns the next tiled (non-floating, non-closed) window in the list */
-static struct Window* nexttiled(struct Window* w)
+struct Window* nexttiled(struct Window* w)
 {
     for (; w && (w->isfloating || w->closed); w = wl_container_of(w->link.next, w, link))
     {
@@ -183,8 +84,8 @@ static void window_handle_dimensions(void* data,
                                      int32_t height)
 {
     struct Window* window = data;
-    window->width = width;
-    window->height = height;
+    window->w = width;
+    window->h = height;
 }
 
 static void window_handle_pointer_move_requested(void* data,
@@ -563,8 +464,8 @@ static void seat_pointer_resize(struct Seat* seat, struct Window* window, uint32
     seat->op_edges = edges;
     seat->op_start_x = window->x;
     seat->op_start_y = window->y;
-    seat->op_start_width = window->width;
-    seat->op_start_height = window->height;
+    seat->op_start_width = window->w;
+    seat->op_start_height = window->h;
     seat->op_dx = 0;
     seat->op_dy = 0;
 }
@@ -702,11 +603,11 @@ static void seat_render(struct Seat* seat)
             int32_t y = seat->op_start_y;
             if ((seat->op_edges & RIVER_WINDOW_V1_EDGES_LEFT) != 0)
             {
-                x += seat->op_start_width - seat->op_window->width;
+                x += seat->op_start_width - seat->op_window->w;
             }
             if ((seat->op_edges & RIVER_WINDOW_V1_EDGES_TOP) != 0)
             {
-                y += seat->op_start_height - seat->op_window->height;
+                y += seat->op_start_height - seat->op_window->h;
             }
             window_set_position(seat->op_window, x, y);
             break;
