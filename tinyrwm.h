@@ -87,6 +87,9 @@ struct Window
     /// The client x, y coordinates and size (width, height).
     int x, y, w, h;
 
+    /// Current border width for this window
+    int bw;
+
     struct Seat* pointer_move_requested;
     struct Seat* pointer_resize_requested;
     uint32_t pointer_resize_requested_edges;
@@ -276,6 +279,12 @@ struct WindowManager
     struct wl_list seats;    // Seat
 };
 
+/* Macros */
+#define HEIGHT(w)  ((w)->h + 2 * (w)->bw)
+#define WIDTH(w)   ((w)->w + 2 * (w)->bw)
+#define MIN(A, B)  ((A) < (B) ? (A) : (B))
+#define MAX(A, B)  ((A) > (B) ? (A) : (B))
+
 /* Global variables */
 extern struct WindowManager wm;
 extern struct river_window_manager_v1* window_manager_v1;
@@ -287,7 +296,7 @@ void attach(struct Window* w);
 void detach(struct Window* w);
 void attachstack(struct Window* w);
 void detachstack(struct Window* w);
-void resize(struct Window* w, int x, int y, int width, int height);
+void resize(struct Window* w, int x, int y, int width, int height, int bw);
 void arrange(struct Output* m);
 void attach(struct Window* w);
 void detach(struct Window* w);

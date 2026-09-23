@@ -291,9 +291,13 @@ static void window_set_borders(struct Window* w, int bw, int focused)
 }
 
 /* Resize a window to the given position and dimensions with border width */
-void resize(struct Window* w, const int x, const int y, const int width, const int height, const int bw)
+void resize(
+    struct Window* w, const int x, const int y, const int width, const int height, const int bw)
 {
     if (!w) return;
+
+    // Store border width
+    w->bw = bw;
 
     // Update window's position
     window_set_position(w, x, y);
@@ -302,9 +306,8 @@ void resize(struct Window* w, const int x, const int y, const int width, const i
     // The actual dimensions will be set by window_handle_dimensions callback
     river_window_v1_propose_dimensions(w->obj, width, height);
 
-    // Set borders with the specified width
-    // TODO: Track focus state to set focused vs unfocused colors
-    window_set_borders(w, bw, 0);
+    // Note: Borders are set in the render pass by drawborders()
+    // This ensures all windows get correct focus state
 }
 
 /* Arrange windows on an output using its current layout */
@@ -358,8 +361,7 @@ static void tile(struct Output* m)
          w = nexttiled(wl_container_of(w->tile_link.next, w, tile_link)), n++);
 
     /* If we have no tiled clients then there is nothing to do, stop processing now. */
-    if (n == 0)
-        return;
+    if (n == 0) return;
 
     /* The general idea here is that we have a master area where the master client(s) are tiled
      * and a stack area where the remaining clients are tiled.
@@ -397,7 +399,8 @@ static void tile(struct Output* m)
 
         /* If this client goes into the master area (this includes the case where all
          * clients go into the master area). */
-        if (i < nmaster) {
+        if (i < nmaster)
+        {
             /* Here we calculate the height of the client based on the remaining space
              * and the number of clients left to place.
              *
@@ -424,7 +427,7 @@ static void tile(struct Output* m)
              *                     border width from the size
              *    bw             - border width for this window
              */
-            resize(w, m->wx, m->wy + my, mw - (2*bw), h - (2*bw), bw);
+            resize(w, m->wx, m->wy + my, mw - (2 * bw), h - (2 * bw), bw);
 
             /* We increment the master y position with the height of the client after
              * the resize so that we know where the next client can be positioned.
@@ -433,11 +436,13 @@ static void tile(struct Output* m)
              * than the window area height, in which case the height calculation above
              * would result in a negative value - and a negative value for an unsigned
              * int results in a really really big number causing a crash. */
-            if (my + h < m->wh)
-                my += h;
-        /* Otherwise the client goes into the stack area (this includes the case where
-         * nmaster is 0 and all clients go into the stack area). */
-        } else {
+            if (my + HEIGHT(w) < m->wh)
+                my += HEIGHT(w);
+            /* Otherwise the client goes into the stack area (this includes the case where
+             * nmaster is 0 and all clients go into the stack area). */
+        }
+        else
+        {
             /* Here we calculate the height of the client based on the remaining space
              * and the number of clients left to place.
              *
@@ -458,12 +463,12 @@ static void tile(struct Output* m)
              *                        border width from the size
              *    bw                - border width for this window
              */
-            resize(w, m->wx + mw, m->wy + ty, m->ww - mw - (2*bw), h - (2*bw), bw);
+            resize(w, m->wx + mw, m->wy + ty, m->ww - mw - (2 * bw), h - (2 * bw), bw);
 
             /* We increment the stack y position with the height of the client after
              * the resize so that we know where the next client can be positioned. */
-            if (ty + h < m->wh)
-                ty += h;
+            if (ty + HEIGHT(w) < m->wh)
+                ty += HEIGHT(w);
         }
 
     /* Now following that how come the implementation is so complicated in that it continuously
@@ -957,6 +962,38 @@ static void wm_handle_manage_start(void* data, struct river_window_manager_v1* o
     river_window_manager_v1_manage_finish(window_manager_v1);
 }
 
+/* Draw borders for all windows, setting colors based on focus state
+ *
+ * This must be called during the render sequence to ensure the River
+ * compositor applies the border styling.
+ */
+static void drawborders(void)
+{
+    struct Window* w;
+    struct Seat* seat;
+
+    // For each window, check if any seat has it focused
+    wl_list_for_each(w, &wm.windows, link)
+    {
+        if (w->closed) continue;
+
+        int focused = 0;
+
+        // Check if this window is focused by any seat
+        wl_list_for_each(seat, &wm.seats, link)
+        {
+            if (seat->focused == w)
+            {
+                focused = 1;
+                break;
+            }
+        }
+
+        // Set borders with current width and appropriate color
+        window_set_borders(w, w->bw, focused);
+    }
+}
+
 static void wm_handle_render_start(void* data, struct river_window_manager_v1* obj)
 {
     struct Seat* seat;
@@ -964,6 +1001,9 @@ static void wm_handle_render_start(void* data, struct river_window_manager_v1* o
     {
         seat_render(seat);
     }
+
+    // Update borders for all windows based on current focus state
+    drawborders();
 
     river_window_manager_v1_render_finish(window_manager_v1);
 }
@@ -976,6 +1016,9 @@ static void wm_handle_window(void* data,
     window->obj = river_window;
     window->node = river_window_v1_get_node(window->obj);
     window->new = true;
+
+    // Initialize border width to default
+    window->bw = borderpx;
 
     // Initialize the window's list links
     wl_list_init(&window->tile_link);
