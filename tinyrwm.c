@@ -273,7 +273,7 @@ static void window_set_position(struct Window* window, int32_t x, int32_t y)
  * Must be called during a render sequence.
  * focused=1 uses focused border color, focused=0 uses unfocused color.
  */
-static void window_set_borders(struct Window* w, int focused)
+static void window_set_borders(struct Window* w, int bw, int focused)
 {
     const unsigned int* colors = focused ? border_color_focused : border_color_unfocused;
 
@@ -282,7 +282,7 @@ static void window_set_borders(struct Window* w, int focused)
     river_window_v1_set_borders(w->obj,
                                 RIVER_WINDOW_V1_EDGES_TOP | RIVER_WINDOW_V1_EDGES_RIGHT |
                                     RIVER_WINDOW_V1_EDGES_BOTTOM | RIVER_WINDOW_V1_EDGES_LEFT,
-                                borderpx,
+                                bw,
                                 colors[0],  // R
                                 colors[1],  // G
                                 colors[2],  // B
@@ -290,8 +290,8 @@ static void window_set_borders(struct Window* w, int focused)
     );
 }
 
-/* Resize a window to the given position and dimensions */
-void resize(struct Window* w, const int x, const int y, const int width, const int height)
+/* Resize a window to the given position and dimensions with border width */
+void resize(struct Window* w, const int x, const int y, const int width, const int height, const int bw)
 {
     if (!w) return;
 
@@ -301,6 +301,10 @@ void resize(struct Window* w, const int x, const int y, const int width, const i
     // Tell River compositor to resize the window
     // The actual dimensions will be set by window_handle_dimensions callback
     river_window_v1_propose_dimensions(w->obj, width, height);
+
+    // Set borders with the specified width
+    // TODO: Track focus state to set focused vs unfocused colors
+    window_set_borders(w, bw, 0);
 }
 
 /* Arrange windows on an output using its current layout */
@@ -332,56 +336,151 @@ void arrange(struct Output* m)
  */
 static void tile(struct Output* m)
 {
-    unsigned int i, n;  // iterator, number of tiled windows
-    int h;              // calculated window height
-    int mw;             // master area width
-    int my, ty;         // master y, stack y (running y positions)
+    /* Variables:
+     *    i - iterator, represents number of clients processed
+     *    n - total number of clients
+     *    h - calculated client height
+     *    mw - calculated width of the master area
+     *    my - calculated master area y position relative to the window area
+     *    ty - calculated stack area y position relative to window area (tile y, the naming is
+     *         likely a remnant from a time before the nmaster patch was applied upstream -
+     *         before that the master area had only one client and the remaining clients would
+     *         be tiled in the tile area)
+     *    bw - border width
+     */
+    unsigned int i, n, h, mw, my, ty, bw;
     struct Window* w;
 
-    // Count tiled windows
-    n = 0;
-    wl_list_for_each(w, &m->clients, tile_link)
-    {
-        if (!w->isfloating && !w->closed) n++;
-    }
+    /* This loop just counts the number of tiled clients storing the count in the variable n. */
+    if (wl_list_empty(&m->clients)) return;
+    w = wl_container_of(m->clients.next, w, tile_link);
+    for (n = 0, w = nexttiled(w); w;
+         w = nexttiled(wl_container_of(w->tile_link.next, w, tile_link)), n++);
 
-    // No tiled windows - nothing to do
-    if (n == 0) return;
+    /* If we have no tiled clients then there is nothing to do, stop processing now. */
+    if (n == 0)
+        return;
 
-    // Calculate master area width
-    // If we have more windows than nmaster, split the screen
-    // Otherwise, master takes full width
+    /* The general idea here is that we have a master area where the master client(s) are tiled
+     * and a stack area where the remaining clients are tiled.
+     *
+     * The number of clients in the master area is controlled using nmaster.
+     *
+     * In principle the code below is not that complicated, but something that does make it a
+     * bit convoluted are the two exceptional cases where:
+     *    - nmaster is 0, in which case only the stack area is drawn and
+     *    - nmaster is greater than n, in which case only the master area is drawn
+     */
+
+    if (n == 1)
+        bw = 0;
+    else
+        bw = borderpx;
+
+    /* If we have enough clients for both the master and the stack area then we split the
+     * window area in two by applying the master stack factor (mfact). */
     if (n > nmaster)
+        /* But in the exceptional case that nmaster is 0 then we also set the master area
+         * width to 0. This because all the clients will be drawn in the stack area, and
+         * the stack area subtracts mw from the available width. */
         mw = nmaster ? m->ww * mfact : 0;
     else
+        /* If we have less clients than nmaster then all clients will be drawn in the
+         * master area and thus the master area takes up the entire window area. */
         mw = m->ww;
 
-    // Position windows
-    i = 0;
-    my = 0;  // Master area y offset
-    ty = 0;  // Stack area y offset
+    /* This loops through all clients initialising i, the master y (my), and the stack y (ty)
+     * to 0 while incrementing i for each client processed. */
+    w = wl_container_of(m->clients.next, w, tile_link);
+    for (i = my = ty = 0, w = nexttiled(w); w;
+         w = nexttiled(wl_container_of(w->tile_link.next, w, tile_link)), i++)
 
-    wl_list_for_each(w, &m->clients, tile_link)
-    {
-        // Skip floating and closed windows
-        if (w->isfloating || w->closed) continue;
-
-        if (i < nmaster)
-        {
-            // Master area windows (left side)
+        /* If this client goes into the master area (this includes the case where all
+         * clients go into the master area). */
+        if (i < nmaster) {
+            /* Here we calculate the height of the client based on the remaining space
+             * and the number of clients left to place.
+             *
+             *    (m->wh - my)        - the remaining space
+             *    MIN(n, nmaster)     - this covers for the exceptional case where
+             *                          nmaster is greater than the number of clients,
+             *                          imagine if nmaster is 8 and we have 6 clients
+             *    (MIN(...) - i)      - the number of remaining clients
+             *
+             * Putting this together we have that the height h is the remaining space
+             * divided by the remaining clients.
+             */
             h = (m->wh - my) / (MIN(n, nmaster) - i);
-            resize(w, m->wx, m->wy + my, mw, h);
-            my += h;
-        }
-        else
-        {
-            // Stack area windows (right side)
+
+            /* This resizes and positions the client accordingly.
+             *
+             *    m->wx          - the window area x position
+             *    m->wy + my     - the window area y position + master client y position
+             *    mw - (2*bw)    - the width of the client, defined earlier to be either
+             *                     the entire width of the monitor window area or the
+             *                     width of the master area after mfact has been
+             *                     applied, we subtract the border width from the size
+             *    h - (2*bw)     - the calculated height of the client, we subtract the
+             *                     border width from the size
+             *    bw             - border width for this window
+             */
+            resize(w, m->wx, m->wy + my, mw - (2*bw), h - (2*bw), bw);
+
+            /* We increment the master y position with the height of the client after
+             * the resize so that we know where the next client can be positioned.
+             *
+             * The if statement is a guard to prevent the my variable growing larger
+             * than the window area height, in which case the height calculation above
+             * would result in a negative value - and a negative value for an unsigned
+             * int results in a really really big number causing a crash. */
+            if (my + h < m->wh)
+                my += h;
+        /* Otherwise the client goes into the stack area (this includes the case where
+         * nmaster is 0 and all clients go into the stack area). */
+        } else {
+            /* Here we calculate the height of the client based on the remaining space
+             * and the number of clients left to place.
+             *
+             *    (m->wh - ty)        - the remaining space
+             *    (n - i)             - the number of remaining clients
+             */
             h = (m->wh - ty) / (n - i);
-            resize(w, m->wx + mw, m->wy + ty, m->ww - mw, h);
-            ty += h;
+
+            /* This resizes and positions the client accordingly.
+             *
+             *    m->wx + mw        - the window area x position + master width gives the
+             *                        stack area x position (mw can be 0)
+             *    m->wy + ty        - the window area y position + stack client y position
+             *    m->ww - mw        - the width of the client in the stack area is the
+             *      - (2*bw)          remaining space after master width has been deducted,
+             *                        we subtract the border width from the size
+             *    h - (2*bw)        - the calculated height of the client, we subtract the
+             *                        border width from the size
+             *    bw                - border width for this window
+             */
+            resize(w, m->wx + mw, m->wy + ty, m->ww - mw - (2*bw), h - (2*bw), bw);
+
+            /* We increment the stack y position with the height of the client after
+             * the resize so that we know where the next client can be positioned. */
+            if (ty + h < m->wh)
+                ty += h;
         }
-        i++;
-    }
+
+    /* Now following that how come the implementation is so complicated in that it continuously
+     * calculates the remaining space for each client? Why does it not just simply divide the
+     * available space by the number of clients and leave it at that?
+     *
+     * The reason for why it is implemented in this way has specifically to do with size hints
+     * in that a client like the simple terminal (st) for example would not be able to utilise
+     * all the space given. By default size hints are respected in tiled resizals, and by
+     * calculating the size one client at a time and only incrementing by the size that was
+     * used after size hints has been applied the space usage is more or less optimised.
+     * Another thing to consider is that no matter how you divide the available space there
+     * will always be the case where some divisions will give remainder pixels that are not
+     * allocated. The way windows are tiled here the last client to be tiled in each respective
+     * area will receive the remaining space. This is why the bottom client in the stack area
+     * often appears larger than the rest.
+     */
 }
 
 static void seat_pointer_move(struct Seat* seat, struct Window* window);
