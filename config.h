@@ -32,8 +32,9 @@ static const unsigned int border_color_focused[] = {
 /* Layout definitions */
 static const Layout layouts[] = {
     /* symbol     arrange function */
-    {"[]=", tile}, /* tiling layout */
-    {"><>", NULL}, /* floating layout (no arrange function) */
+    {"[]=", tile},   /* tiling layout */
+    {"[M]", monocle}, /* monocle layout */
+    {"><>", NULL},   /* floating layout (no arrange function) */
 };
 
 #endif  // CONFIG_H

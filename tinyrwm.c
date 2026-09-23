@@ -310,16 +310,24 @@ void resize(
     // This ensures all windows get correct focus state
 }
 
-/* Arrange windows on an output using its current layout */
+/* Arrange windows on an output using its current layout
+ *
+ * This sets / updates the layout symbol for the monitor and calls the layout arrange function
+ * (tile, monocle, etc.) to resize and reposition client windows.
+ */
 void arrange(struct Output* m)
 {
-    // TODO: if its NULL there rearrange all windows
-    // TODO: set ltsymbol
+    // TODO: if its NULL then rearrange all windows
     if (!m) return;
+
+    // Set the layout symbol from the current layout
+    if (m->lt && m->lt->symbol)
+        strncpy(m->ltsymbol, m->lt->symbol, sizeof m->ltsymbol);
 
     // Call the layout's arrange function if it has one
     // (NULL means floating layout - no automatic arrangement)
-    if (m->lt && m->lt->arrange) m->lt->arrange(m);
+    if (m->lt && m->lt->arrange)
+        m->lt->arrange(m);
 }
 
 /* Tile layout - master/stack arrangement
@@ -486,6 +494,38 @@ static void tile(struct Output* m)
      * area will receive the remaining space. This is why the bottom client in the stack area
      * often appears larger than the rest.
      */
+}
+
+void
+monocle(struct Output* m)
+{
+	unsigned int n = 0; /* number of clients */
+	struct Window* w;
+
+	/* This for loop is just to get a count of all visible tiled clients.
+	 * This number could be used to update a layout symbol in a bar to say e.g. [3].
+	 */
+	if (wl_list_empty(&m->clients)) return;
+	w = wl_container_of(m->clients.next, w, tile_link);
+	for (w = nexttiled(w); w; w = nexttiled(wl_container_of(w->tile_link.next, w, tile_link)), n++);
+
+	/* The layout symbol of the monitor is only overwritten if there are clients visible
+	 * on the selected tag(s). Look up snprintf if you are unsure what this does, but the gist
+	 * of it is that it replaces the %d format inside the string "[%d]" with the value of n
+	 * (e.g. 3) and writes the output to the monitor layout symbol (m->ltsymbol) and it writes
+	 * at most 16 bytes (sizeof m->ltsymbol) to that variable.
+	 */
+	if (n > 0) /* override layout symbol */
+		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
+
+	/* This just loops through all tiled clients and resizes them to take up the entire window
+	 * area. Note that this does not have anything to do with which window is shown on top, that
+	 * is determined by the window that has focus which will be above other tiled windows in the
+	 * stack.
+	 */
+	w = wl_container_of(m->clients.next, w, tile_link);
+	for (w = nexttiled(w); w; w = nexttiled(wl_container_of(w->tile_link.next, w, tile_link)))
+		resize(w, m->wx, m->wy, m->ww - 2 * w->bw, m->wh - 2 * w->bw, 0);
 }
 
 static void seat_pointer_move(struct Seat* seat, struct Window* window);
@@ -1060,6 +1100,10 @@ static void wm_handle_output(void* data,
 
     // Set default layout (first in layouts array - tiling)
     output->lt = &layouts[0];
+
+    // Initialize layout symbol from the default layout
+    if (output->lt && output->lt->symbol)
+        strncpy(output->ltsymbol, output->lt->symbol, sizeof output->ltsymbol);
 
     river_output_v1_add_listener(output->obj, &river_output_listener, output);
 

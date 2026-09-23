@@ -72,6 +72,13 @@ struct Output
 
     /// Current layout for this output
     const Layout* lt;
+
+    /* This holds the layout symbol text, typically as defined in the layouts array. This is
+     * used when drawing the layout symbol on the bar. The reason why this is defined for the
+     * monitor rather than simply using the layout symbol as defined in the layouts array is
+     * that some layouts, like the monocle layout for example, may alter the layout symbol
+     * depending on how many clients are present. */
+    char ltsymbol[16];
 };
 
 /* Window structure */
