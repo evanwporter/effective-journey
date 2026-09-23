@@ -16,6 +16,8 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "util.h"
+
 struct Output
 {
     struct river_output_v1* obj;
@@ -355,7 +357,7 @@ static void xkb_binding_create(struct Seat* seat,
                                xkb_keysym_t keysym,
                                enum Action action)
 {
-    struct XkbBinding* binding = calloc(1, sizeof(struct XkbBinding));
+    struct XkbBinding* binding = ecalloc(1, sizeof(struct XkbBinding));
     binding->obj = river_xkb_bindings_v1_get_xkb_binding(xkb_bindings_v1, seat->obj, keysym, mods);
     binding->seat = seat;
     binding->action = action;
@@ -393,7 +395,7 @@ static void pointer_binding_create(struct Seat* seat,
                                    uint32_t button,
                                    enum Action action)
 {
-    struct PointerBinding* binding = calloc(1, sizeof(struct PointerBinding));
+    struct PointerBinding* binding = ecalloc(1, sizeof(struct PointerBinding));
     binding->obj = river_seat_v1_get_pointer_binding(seat->obj, button, mods);
     binding->seat = seat;
     binding->action = action;
@@ -754,7 +756,7 @@ static void wm_handle_window(void* data,
                              struct river_window_manager_v1* obj,
                              struct river_window_v1* river_window)
 {
-    struct Window* window = calloc(1, sizeof(struct Window));
+    struct Window* window = ecalloc(1, sizeof(struct Window));
     window->obj = river_window;
     window->node = river_window_v1_get_node(window->obj);
     window->new = true;
@@ -768,7 +770,7 @@ static void wm_handle_output(void* data,
                              struct river_window_manager_v1* obj,
                              struct river_output_v1* river_output)
 {
-    struct Output* output = calloc(1, sizeof(struct Output));
+    struct Output* output = ecalloc(1, sizeof(struct Output));
     output->obj = river_output;
 
     river_output_v1_add_listener(output->obj, &river_output_listener, output);
@@ -780,7 +782,7 @@ static void wm_handle_seat(void* data,
                            struct river_window_manager_v1* obj,
                            struct river_seat_v1* river_seat)
 {
-    struct Seat* seat = calloc(1, sizeof(struct Seat));
+    struct Seat* seat = ecalloc(1, sizeof(struct Seat));
     seat->obj = river_seat;
     seat->new = true;
     wl_list_init(&seat->xkb_bindings);
