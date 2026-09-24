@@ -812,7 +812,7 @@ static void seat_focus(struct Seat* seat, struct Window* window)
 
 /* User function to move focus up or down the stack
  *
- * This cycles through visible tiled windows in the stack order.
+ * This cycles through visible tiled windows in their visual tile order on screen.
  * inc > 0 moves forward (next window), inc < 0 moves backward (previous window).
  * wl_list is a circular doubly-linked list, so wrapping is automatic.
  */
@@ -830,15 +830,15 @@ void focusstack(struct Seat* seat, int inc)
     /* If the input value is positive then we move forward to find the next visible tiled window. */
     if (inc > 0)
     {
-        /* Start from the focused window and iterate forward.
+        /* Start from the focused window and iterate forward through tile order.
          * List wraps automatically */
-        for (link = seat->focused->stack_link.next; link != &seat->focused->stack_link;
+        for (link = seat->focused->tile_link.next; link != &seat->focused->tile_link;
              link = link->next)
         {
             /* Skip the list head */
-            if (link == &seat->mon->stack) continue;
+            if (link == &seat->mon->clients) continue;
 
-            w = wl_container_of(link, w, stack_link);
+            w = wl_container_of(link, w, tile_link);
 
             /* Exit early if the window is not closed and
              * not floating windows */
@@ -850,15 +850,15 @@ void focusstack(struct Seat* seat, int inc)
     /* Otherwise we move backward to find the prior visible tiled window. */
     else
     {
-        /* Start from the focused window and iterate backward
+        /* Start from the focused window and iterate backward through tile order
          * List wraps automatically */
-        for (link = seat->focused->stack_link.prev; link != &seat->focused->stack_link;
+        for (link = seat->focused->tile_link.prev; link != &seat->focused->tile_link;
              link = link->prev)
         {
             /* Skip the list head */
-            if (link == &seat->mon->stack) continue;
+            if (link == &seat->mon->clients) continue;
 
-            w = wl_container_of(link, w, stack_link);
+            w = wl_container_of(link, w, tile_link);
 
             /* Exit early if the window is not closed and
              * not floating windows */
