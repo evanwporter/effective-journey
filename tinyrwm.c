@@ -321,13 +321,11 @@ void arrange(struct Output* m)
     if (!m) return;
 
     // Set the layout symbol from the current layout
-    if (m->lt && m->lt->symbol)
-        strncpy(m->ltsymbol, m->lt->symbol, sizeof m->ltsymbol);
+    if (m->lt && m->lt->symbol) strncpy(m->ltsymbol, m->lt->symbol, sizeof m->ltsymbol);
 
     // Call the layout's arrange function if it has one
     // (NULL means floating layout - no automatic arrangement)
-    if (m->lt && m->lt->arrange)
-        m->lt->arrange(m);
+    if (m->lt && m->lt->arrange) m->lt->arrange(m);
 }
 
 /* Tile layout - master/stack arrangement
@@ -444,8 +442,7 @@ static void tile(struct Output* m)
              * than the window area height, in which case the height calculation above
              * would result in a negative value - and a negative value for an unsigned
              * int results in a really really big number causing a crash. */
-            if (my + HEIGHT(w) < m->wh)
-                my += HEIGHT(w);
+            if (my + HEIGHT(w) < m->wh) my += HEIGHT(w);
             /* Otherwise the client goes into the stack area (this includes the case where
              * nmaster is 0 and all clients go into the stack area). */
         }
@@ -475,8 +472,7 @@ static void tile(struct Output* m)
 
             /* We increment the stack y position with the height of the client after
              * the resize so that we know where the next client can be positioned. */
-            if (ty + HEIGHT(w) < m->wh)
-                ty += HEIGHT(w);
+            if (ty + HEIGHT(w) < m->wh) ty += HEIGHT(w);
         }
 
     /* Now following that how come the implementation is so complicated in that it continuously
@@ -496,36 +492,35 @@ static void tile(struct Output* m)
      */
 }
 
-void
-monocle(struct Output* m)
+void monocle(struct Output* m)
 {
-	unsigned int n = 0; /* number of clients */
-	struct Window* w;
+    unsigned int n = 0; /* number of clients */
+    struct Window* w;
 
-	/* This for loop is just to get a count of all visible tiled clients.
-	 * This number could be used to update a layout symbol in a bar to say e.g. [3].
-	 */
-	if (wl_list_empty(&m->clients)) return;
-	w = wl_container_of(m->clients.next, w, tile_link);
-	for (w = nexttiled(w); w; w = nexttiled(wl_container_of(w->tile_link.next, w, tile_link)), n++);
+    /* This for loop is just to get a count of all visible tiled clients.
+     * This number could be used to update a layout symbol in a bar to say e.g. [3].
+     */
+    if (wl_list_empty(&m->clients)) return;
+    w = wl_container_of(m->clients.next, w, tile_link);
+    for (w = nexttiled(w); w; w = nexttiled(wl_container_of(w->tile_link.next, w, tile_link)), n++);
 
-	/* The layout symbol of the monitor is only overwritten if there are clients visible
-	 * on the selected tag(s). Look up snprintf if you are unsure what this does, but the gist
-	 * of it is that it replaces the %d format inside the string "[%d]" with the value of n
-	 * (e.g. 3) and writes the output to the monitor layout symbol (m->ltsymbol) and it writes
-	 * at most 16 bytes (sizeof m->ltsymbol) to that variable.
-	 */
-	if (n > 0) /* override layout symbol */
-		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
+    /* The layout symbol of the monitor is only overwritten if there are clients visible
+     * on the selected tag(s). Look up snprintf if you are unsure what this does, but the gist
+     * of it is that it replaces the %d format inside the string "[%d]" with the value of n
+     * (e.g. 3) and writes the output to the monitor layout symbol (m->ltsymbol) and it writes
+     * at most 16 bytes (sizeof m->ltsymbol) to that variable.
+     */
+    if (n > 0) /* override layout symbol */
+        snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
 
-	/* This just loops through all tiled clients and resizes them to take up the entire window
-	 * area. Note that this does not have anything to do with which window is shown on top, that
-	 * is determined by the window that has focus which will be above other tiled windows in the
-	 * stack.
-	 */
-	w = wl_container_of(m->clients.next, w, tile_link);
-	for (w = nexttiled(w); w; w = nexttiled(wl_container_of(w->tile_link.next, w, tile_link)))
-		resize(w, m->wx, m->wy, m->ww - 2 * w->bw, m->wh - 2 * w->bw, 0);
+    /* This just loops through all tiled clients and resizes them to take up the entire window
+     * area. Note that this does not have anything to do with which window is shown on top, that
+     * is determined by the window that has focus which will be above other tiled windows in the
+     * stack.
+     */
+    w = wl_container_of(m->clients.next, w, tile_link);
+    for (w = nexttiled(w); w; w = nexttiled(wl_container_of(w->tile_link.next, w, tile_link)))
+        resize(w, m->wx, m->wy, m->ww - 2 * w->bw, m->wh - 2 * w->bw, 0);
 }
 
 static void seat_pointer_move(struct Seat* seat, struct Window* window);
@@ -785,6 +780,70 @@ static void seat_focus(struct Seat* seat, struct Window* window)
     }
 
     seat->focused = window;
+}
+
+/* User function to move focus up or down the stack
+ *
+ * This cycles through visible tiled windows in the stack order.
+ * inc > 0 moves forward (next window), inc < 0 moves backward (previous window).
+ * wl_list is a circular doubly-linked list, so wrapping is automatic.
+ */
+static void focusstack(struct Seat* seat, int inc)
+{
+    struct Window* w = NULL;
+    struct wl_list* link;
+
+    /* Bail if there is no currently focused window */
+    if (!seat->focused) return;
+
+    /* Bail if there's no monitor */
+    if (!seat->mon) return;
+
+    /* If the input value is positive then we move forward to find the next visible tiled window. */
+    if (inc > 0)
+    {
+        /* Start from the focused window and iterate forward.
+         * List wraps automatically */
+        for (link = seat->focused->stack_link.next; link != &seat->focused->stack_link;
+             link = link->next)
+        {
+            /* Skip the list head */
+            if (link == &seat->mon->stack) continue;
+
+            w = wl_container_of(link, w, stack_link);
+
+            /* Exit early if the window is not closed and
+             * not floating windows */
+            if (!w->closed && !w->isfloating) break;
+            w = NULL;
+        }
+    }
+
+    /* Otherwise we move backward to find the prior visible tiled window. */
+    else
+    {
+        /* Start from the focused window and iterate backward
+         * List wraps automatically */
+        for (link = seat->focused->stack_link.prev; link != &seat->focused->stack_link;
+             link = link->prev)
+        {
+            /* Skip the list head */
+            if (link == &seat->mon->stack) continue;
+
+            w = wl_container_of(link, w, stack_link);
+
+            /* Exit early if the window is not closed and
+             * not floating windows */
+            if (!w->closed && !w->isfloating) break;
+            w = NULL;
+        }
+    }
+
+    /* If we found a window, give it focus */
+    if (w && w != seat->focused)
+    {
+        seat_focus(seat, w);
+    }
 }
 
 static void seat_pointer_move(struct Seat* seat, struct Window* window)
