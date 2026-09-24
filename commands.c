@@ -16,6 +16,18 @@ void spawn_terminal(struct Seat* seat, const Arg* arg)
     spawn(termcmd);
 }
 
+void spawn_menu(struct Seat* seat, const Arg* arg)
+{
+    const char* menucmd[] = {
+        "bemenu-run",
+        "-l", "10",
+        "-p", "Run:",
+        "--fn", "monospace 12",
+        NULL
+    };
+    spawn(menucmd);
+}
+
 void close_window(struct Seat* seat, const Arg* arg)
 {
     if (seat->focused != NULL)

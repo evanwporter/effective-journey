@@ -2,6 +2,17 @@
 
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+/* Function declarations (defined in commands.c) */
+void spawn_terminal(struct Seat* seat, const Arg* arg);
+void spawn_menu(struct Seat* seat, const Arg* arg);
+void close_window(struct Seat* seat, const Arg* arg);
+void focus_stack(struct Seat* seat, const Arg* arg);
+void set_master_fact(struct Seat* seat, const Arg* arg);
+void exit_wm(struct Seat* seat, const Arg* arg);
+
+/* Appearance */
+static const float scale = 1.0;  /* Monitor scaling factor (1.0 = 100%, 1.5 = 150%, 2.0 = 200%) */
+
 /* number of clients in master area */
 static unsigned int nmaster = 1;
 
@@ -39,12 +50,14 @@ static const unsigned int border_color_focused[] = {
 /* Key bindings
  * Each entry defines: { modifiers, keysym, function, argument }
  * See xkbcommon-keysyms.h for key symbols
+ * Keybindings follow dwm conventions
  */
 static const Key keybinds[] = {
     /* modifier         key              function          argument */
+    {SUPER,         XKB_KEY_p,      spawn_menu,       {0}},
     {SUPER | SHIFT, XKB_KEY_Return, spawn_terminal,   {0}},
-    {SUPER | SHIFT, XKB_KEY_q,      exit_wm,          {0}},
-    {SUPER | SHIFT, XKB_KEY_c,      close_window,     {0}},
+    {SUPER,         XKB_KEY_q,      close_window,     {0}},
+    {SUPER | SHIFT, XKB_KEY_c,      exit_wm,          {0}},
     {SUPER,         XKB_KEY_j,      focus_stack,      {.i = +1}},
     {SUPER,         XKB_KEY_k,      focus_stack,      {.i = -1}},
     {SUPER,         XKB_KEY_h,      set_master_fact,  {.f = -0.05}},

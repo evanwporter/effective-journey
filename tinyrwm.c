@@ -1282,6 +1282,10 @@ static void wm_handle_window(void* data,
 
     river_window_v1_add_listener(window->obj, &river_window_listener, window);
 
+    // Use server-side decorations (no title bars) and set window as tiled
+    river_window_v1_use_ssd(window->obj);
+    river_window_v1_set_tiled(window->obj, 15);  // All edges tiled
+
     // Add to global window list
     wl_list_insert(wm.windows.prev, &window->link);
 
