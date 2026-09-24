@@ -901,20 +901,19 @@ void spawn(const char* const* argv)
     struct sigaction sa;
 
     /* Bail if no command provided */
-    if (!argv || !argv[0])
-        return;
+    if (!argv || !argv[0]) return;
 
     /* This call to fork creates a new (duplicate) process of the current process.
      *
      * For the parent process, fork() returns the child's PID and we return immediately.
      * For the child process, fork() returns 0 and we enter the if statement.
      */
-    if (fork() == 0) {
+    if (fork() == 0)
+    {
         /* Close the Wayland display connection before proceeding. The child inherits
          * the parent's file descriptors and we don't want the child holding onto the
          * Wayland connection. */
-        if (wm.display)
-            close(wl_display_get_fd(wm.display));
+        if (wm.display) close(wl_display_get_fd(wm.display));
 
         /* The call to setsid creates a new session and sets the process group ID. This is
          * needed because a child created via fork inherits its parent's session ID and we

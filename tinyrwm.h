@@ -306,9 +306,6 @@ void attachstack(struct Window* w);
 void detachstack(struct Window* w);
 void resize(struct Window* w, int x, int y, int width, int height, int bw);
 void arrange(struct Output* m);
-void attach(struct Window* w);
-void detach(struct Window* w);
-void attachstack(struct Window* w);
-void detachstack(struct Window* w);
+void spawn(const char* const* argv);
 
 #endif  // TINYRWM_H
