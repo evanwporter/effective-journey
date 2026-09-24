@@ -1,5 +1,6 @@
 /* tinyrwm configuration */
 
+#include "tinyrwm.h"
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 /* Function declarations (defined in commands.c) */
@@ -11,7 +12,7 @@ void set_master_fact(struct Seat* seat, const Arg* arg);
 void exit_wm(struct Seat* seat, const Arg* arg);
 
 /* Appearance */
-static const float scale = 1.0;  /* Monitor scaling factor (1.0 = 100%, 1.5 = 150%, 2.0 = 200%) */
+static const float scale = 1.0; /* Monitor scaling factor (1.0 = 100%, 1.5 = 150%, 2.0 = 200%) */
 
 /* number of clients in master area */
 static unsigned int nmaster = 1;
@@ -28,24 +29,24 @@ static const int borderpx = 3;
  * - Focused:   #e78a3e (orange)
  */
 static const unsigned int border_color_unfocused[] = {
-    0x3c000000,  // R (0x3c / 0xff * 0xffffffff)
-    0x38000000,  // G
-    0x36000000,  // B
-    0xffffffff,  // A (opaque)
+    0x3c000000, // R (0x3c / 0xff * 0xffffffff)
+    0x38000000, // G
+    0x36000000, // B
+    0xffffffff, // A (opaque)
 };
 
 static const unsigned int border_color_focused[] = {
-    0xe7000000,  // R (0xe7 / 0xff * 0xffffffff)
-    0x8a000000,  // G
-    0x3e000000,  // B
-    0xffffffff,  // A (opaque)
+    0xe7000000, // R (0xe7 / 0xff * 0xffffffff)
+    0x8a000000, // G
+    0x3e000000, // B
+    0xffffffff, // A (opaque)
 };
 
 /* Modifier key macros */
-#define CONTROL (1 << 2)  // RIVER_SEAT_V1_MODIFIERS_CTRL
-#define SUPER (1 << 6)    // RIVER_SEAT_V1_MODIFIERS_MOD4
-#define SHIFT (1 << 0)    // RIVER_SEAT_V1_MODIFIERS_SHIFT
-#define ALT (1 << 3)      // RIVER_SEAT_V1_MODIFIERS_MOD1
+#define CONTROL (1 << 2) // RIVER_SEAT_V1_MODIFIERS_CTRL
+#define SUPER (1 << 6) // RIVER_SEAT_V1_MODIFIERS_MOD4
+#define SHIFT (1 << 0) // RIVER_SEAT_V1_MODIFIERS_SHIFT
+#define ALT (1 << 3) // RIVER_SEAT_V1_MODIFIERS_MOD1
 
 /* Key bindings
  * Each entry defines: { modifiers, keysym, function, argument }
@@ -54,20 +55,20 @@ static const unsigned int border_color_focused[] = {
  */
 static const Key keybinds[] = {
     /* modifier         key              function          argument */
-    {SUPER,         XKB_KEY_p,      spawn_menu,       {0}},
-    {SUPER | SHIFT, XKB_KEY_Return, spawn_terminal,   {0}},
-    {SUPER,         XKB_KEY_q,      close_window,     {0}},
-    {SUPER | SHIFT, XKB_KEY_c,      exit_wm,          {0}},
-    {SUPER,         XKB_KEY_j,      focus_stack,      {.i = +1}},
-    {SUPER,         XKB_KEY_k,      focus_stack,      {.i = -1}},
-    {SUPER,         XKB_KEY_h,      set_master_fact,  {.f = -0.05}},
-    {SUPER,         XKB_KEY_l,      set_master_fact,  {.f = +0.05}},
+    { SUPER, XKB_KEY_space, spawn_menu, { 0 } },
+    { SUPER, XKB_KEY_Return, spawn_terminal, { 0 } },
+    { SUPER, XKB_KEY_q, close_window, { 0 } },
+    { SUPER | SHIFT, XKB_KEY_e, exit_wm, { 0 } },
+    { SUPER, XKB_KEY_j, focus_stack, { .i = +1 } },
+    { SUPER, XKB_KEY_k, focus_stack, { .i = -1 } },
+    { SUPER, XKB_KEY_h, set_master_fact, { .f = -0.05 } },
+    { SUPER, XKB_KEY_l, set_master_fact, { .f = +0.05 } },
 };
 
 /* Layout definitions */
 static const Layout layouts[] = {
     /* symbol     arrange function */
-    {"[]=", tile},    /* tiling layout */
-    {"[M]", monocle}, /* monocle layout */
-    {"><>", NULL},    /* floating layout (no arrange function) */
+    { "[]=", tile }, /* tiling layout */
+    { "[M]", monocle }, /* monocle layout */
+    { "><>", NULL }, /* floating layout (no arrange function) */
 };
