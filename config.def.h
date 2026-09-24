@@ -1,15 +1,6 @@
-/* See LICENSE file for copyright and license details. */
-
-/* tinyrwm configuration - this file should be included AFTER tinyrwm.h */
+/* tinyrwm configuration */
 
 #include <xkbcommon/xkbcommon-keysyms.h>
-
-/* Function declarations (defined in commands.c) */
-void spawn_terminal(struct Seat* seat, const Arg* arg);
-void close_window(struct Seat* seat, const Arg* arg);
-void focus_stack(struct Seat* seat, const Arg* arg);
-void set_master_fact(struct Seat* seat, const Arg* arg);
-void exit_wm(struct Seat* seat, const Arg* arg);
 
 /* number of clients in master area */
 static unsigned int nmaster = 1;

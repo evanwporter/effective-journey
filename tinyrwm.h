@@ -342,4 +342,12 @@ void resize(struct Window* w, int x, int y, int width, int height, int bw);
 void arrange(struct Output* m);
 void spawn(const char* const* argv);
 
+/* Layout functions */
+void tile(struct Output* m);
+void monocle(struct Output* m);
+
+/* Internal window manager functions */
+void focusstack(struct Seat* seat, int inc);
+void setmfact(struct Output* m, float f);
+
 #endif  // TINYRWM_H

@@ -3,6 +3,7 @@
 
 #include "tinyrwm.h"
 
+#include <stddef.h>
 #include <river-window-management-v1-client-protocol.h>
 
 #include "config.h"
