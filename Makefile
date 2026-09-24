@@ -26,7 +26,7 @@ CC := gcc
 WAYLAND_SCANNER := wayland-scanner
 
 # Build flags
-CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -Wall -Wextra -Wno-unused-parameter
+CFLAGS := -std=c11 -pedantic -Wall -Wextra -Wno-unused-parameter
 CFLAGS += -O2 -march=native
 CFLAGS += -I$(BUILD_DIR)
 
@@ -83,11 +83,6 @@ $(BUILD_DIR)/%-protocol.c: $(PROTO_DIR)/%.xml | $(BUILD_DIR)
 # Create build directory
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
-
-.PHONY: compile_commands compile-commands
-compile_commands compile-commands:
-	$(MAKE) clean
-	bear --output compile_commands.json -- $(MAKE) all
 
 # Clean build artifacts
 .PHONY: clean
