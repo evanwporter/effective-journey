@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: © 2026 Evan Porter
-// SPDX-License-Identifier: 0BSD
-
 #ifndef TINYRWM_UTIL_H
 #define TINYRWM_UTIL_H
 

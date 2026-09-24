@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: © 2026 Isaac Freund
-// SPDX-License-Identifier: 0BSD
-
 #include "tinyrwm.h"
 
 #include <errno.h>

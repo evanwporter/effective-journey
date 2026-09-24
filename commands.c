@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: © 2026 Evan Porter
-// SPDX-License-Identifier: 0BSD
-
 #include "tinyrwm.h"
 
 #include <river-window-management-v1-client-protocol.h>

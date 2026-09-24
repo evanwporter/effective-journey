@@ -1,6 +1,15 @@
-/* tinyrwm configuration */
+#ifndef CONFIG_H
+#define CONFIG_H
 
+#include "tinyrwm.h"
 #include <xkbcommon/xkbcommon-keysyms.h>
+
+/* Keybinding actions implemented in commands.c. */
+void spawn_terminal(struct Seat* seat, const Arg* arg);
+void close_window(struct Seat* seat, const Arg* arg);
+void focus_stack(struct Seat* seat, const Arg* arg);
+void set_master_fact(struct Seat* seat, const Arg* arg);
+void exit_wm(struct Seat* seat, const Arg* arg);
 
 /* number of clients in master area */
 static unsigned int nmaster = 1;
@@ -42,7 +51,7 @@ static const unsigned int border_color_focused[] = {
  */
 static const Key keybinds[] = {
     /* modifier         key              function          argument */
-    { SUPER | SHIFT, XKB_KEY_Return, spawn_terminal, { 0 } },
+    { SUPER, XKB_KEY_Return, spawn_terminal, { 0 } },
     { SUPER | SHIFT, XKB_KEY_q, exit_wm, { 0 } },
     { SUPER | SHIFT, XKB_KEY_c, close_window, { 0 } },
     { SUPER, XKB_KEY_j, focus_stack, { .i = +1 } },
@@ -58,3 +67,5 @@ static const Layout layouts[] = {
     { "[M]", monocle }, /* monocle layout */
     { "><>", NULL }, /* floating layout (no arrange function) */
 };
+
+#endif // CONFIG_H

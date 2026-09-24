@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: © 2026 Evan Porter
-// SPDX-License-Identifier: 0BSD
-
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
