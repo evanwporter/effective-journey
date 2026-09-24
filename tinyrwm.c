@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wayland-util.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -1013,6 +1014,11 @@ static void wm_handle_manage_start(void* data, struct river_window_manager_v1* o
     }
     wl_list_for_each(seat, &wm.seats, link) {
         seat_manage(seat);
+    }
+
+    // Arrange windows on all outputs
+    wl_list_for_each(output, &wm.outputs, link) {
+        arrange(output);
     }
 
     river_window_manager_v1_manage_finish(window_manager_v1);
