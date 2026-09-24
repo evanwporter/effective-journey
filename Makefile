@@ -84,6 +84,11 @@ $(BUILD_DIR)/%-protocol.c: $(PROTO_DIR)/%.xml | $(BUILD_DIR)
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
+.PHONY: compile_commands compile-commands
+compile_commands compile-commands:
+	$(MAKE) clean
+	bear --output compile_commands.json -- $(MAKE) all
+
 # Clean build artifacts
 .PHONY: clean
 clean:

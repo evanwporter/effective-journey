@@ -27,13 +27,12 @@ struct TreeNode;
 /* Layout structure - defines a window layout */
 typedef struct
 {
-    const char* symbol;              /* Symbol to display (e.g., "[]=", "><>") */
+    const char* symbol; /* Symbol to display (e.g., "[]=", "><>") */
     void (*arrange)(struct Output*); /* Layout function pointer */
 } Layout;
 
 /* Output structure */
-struct Output
-{
+struct Output {
     /* These variables represents the position and dimensions of the monitor.
      *    mx - monitor position on the x-axis
      *    my - monitor position on the y-axis
@@ -65,7 +64,7 @@ struct Output
 
     struct river_output_v1* obj;
     bool removed;
-    struct wl_list link;  // WindowManager.outputs
+    struct wl_list link; // WindowManager.outputs
 
     /// Head of the tile list (for tiling order)
     struct wl_list clients;
@@ -85,8 +84,7 @@ struct Output
 };
 
 /* Window structure */
-struct Window
-{
+struct Window {
     struct river_window_v1* obj;
     struct river_node_v1* node;
 
@@ -110,7 +108,7 @@ struct Window
     /// The icon to display in the tabline / window titles
     char* icon;
 
-    struct wl_list link;  // WindowManager.windows
+    struct wl_list link; // WindowManager.windows
 
     /// The next and previous client in the client list, which is a linked list. The client list
     /// controls the order in which clients are tiled.
@@ -122,8 +120,7 @@ struct Window
     struct wl_list stack_link;
 };
 
-typedef struct Workspace
-{
+typedef struct Workspace {
     /* This represents the number of clients that are to be tiled in the master area. This has
      * no upper limit but cannot be less than 0. The default value is configured in the
      * configuration file and the value is adjusted via the incnmaster function. */
@@ -216,8 +213,7 @@ typedef struct
  *   f  - float (e.g., mfact adjustments)
  *   v  - void pointer (e.g., command arrays, layout pointers)
  */
-typedef union
-{
+typedef union {
     int i;
     unsigned int ui;
     float f;
@@ -241,8 +237,7 @@ typedef struct
 } Key;
 
 /* Action enumeration for key/pointer bindings */
-enum Action
-{
+enum Action {
     ACTION_NONE,
     ACTION_SPAWN_FOOT,
     ACTION_CLOSE,
@@ -255,8 +250,7 @@ enum Action
 /* XKB (keyboard) binding structure
  * This now wraps the Key definition from config and adds the River protocol object
  */
-struct XkbBinding
-{
+struct XkbBinding {
     struct river_xkb_binding_v1* obj;
     struct Seat* seat;
     void (*func)(struct Seat*, const Arg*);
@@ -265,8 +259,7 @@ struct XkbBinding
 };
 
 /* Pointer (mouse) binding structure */
-struct PointerBinding
-{
+struct PointerBinding {
     struct river_pointer_binding_v1* obj;
     struct Seat* seat;
     enum Action action;
@@ -274,16 +267,14 @@ struct PointerBinding
 };
 
 /* Seat operation enumeration */
-enum SeatOp
-{
+enum SeatOp {
     SEAT_OP_NONE,
     SEAT_OP_MOVE,
     SEAT_OP_RESIZE,
 };
 
 /* Seat structure - represents an input device (keyboard/pointer) */
-struct Seat
-{
+struct Seat {
     struct river_seat_v1* obj;
     bool new;
     bool removed;
@@ -299,8 +290,8 @@ struct Seat
 
     struct Window* interacted;
 
-    struct wl_list xkb_bindings;      // XkbBinding
-    struct wl_list pointer_bindings;  // PointerBinding
+    struct wl_list xkb_bindings; // XkbBinding
+    struct wl_list pointer_bindings; // PointerBinding
     enum Action pending_action;
 
     enum SeatOp op;
@@ -313,16 +304,15 @@ struct Seat
     int32_t op_start_width, op_start_height;
     uint32_t op_edges;
 
-    struct wl_list link;  // WindowManager.seats
+    struct wl_list link; // WindowManager.seats
 };
 
 /* Window manager global state */
-struct WindowManager
-{
-    struct wl_display* display;  // Wayland display connection
-    struct wl_list outputs;      // Output
-    struct wl_list windows;      // Window
-    struct wl_list seats;        // Seat
+struct WindowManager {
+    struct wl_display* display; // Wayland display connection
+    struct wl_list outputs; // Output
+    struct wl_list windows; // Window
+    struct wl_list seats; // Seat
 };
 
 /* Macros */
@@ -354,4 +344,4 @@ void monocle(struct Output* m);
 void focusstack(struct Seat* seat, int inc);
 void setmfact(struct Output* m, float f);
 
-#endif  // TINYRWM_H
+#endif // TINYRWM_H
