@@ -281,9 +281,10 @@ struct Seat
 /* Window manager global state */
 struct WindowManager
 {
-    struct wl_list outputs;  // Output
-    struct wl_list windows;  // Window
-    struct wl_list seats;    // Seat
+    struct wl_display* display;  // Wayland display connection
+    struct wl_list outputs;      // Output
+    struct wl_list windows;      // Window
+    struct wl_list seats;        // Seat
 };
 
 /* Macros */

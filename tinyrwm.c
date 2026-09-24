@@ -3,6 +3,7 @@
 
 #include "tinyrwm.h"
 
+#include <errno.h>
 #include <linux/input-event-codes.h>
 #include <river-window-management-v1-client-protocol.h>
 #include <river-xkb-bindings-v1-client-protocol.h>
@@ -846,6 +847,107 @@ static void focusstack(struct Seat* seat, int inc)
     }
 }
 
+/* User function to adjust the master area factor (mfact)
+ *
+ * The master area factor controls what percentage of the screen width the master area takes up
+ * in the tile layout. For example, mfact=0.5 means the master area takes 50% of the width.
+ *
+ * This function can be called with either:
+ *   - A relative adjustment: f < 1.0 adds to current mfact (e.g., +0.05 increases by 5%)
+ *   - An absolute value: f >= 1.0 sets mfact directly (e.g., 1.55 sets to 0.55)
+ *
+ * The value is clamped to the range [0.05, 0.95] to ensure both master and stack areas
+ * remain usable.
+ */
+static void setmfact(struct Output* m, float f)
+{
+    float next_mfact; /* The next factor value */
+
+    /* If there's no monitor or the current layout is floating layout (as indicated by
+     * having a NULL arrange function as defined in the layouts array), then we do nothing. */
+    if (!m || !m->lt || !m->lt->arrange) return;
+
+    /* If the given float argument is less than 1.0 then make a relative adjustment of the mfact
+     * value, otherwise set the mfact value absolutely. */
+    next_mfact = f < 1.0 ? f + mfact : f - 1.0;
+
+    /* Check that the next factor value is within the bounds of the minimum of 0.05 and the
+     * maximum of 0.95. If it is not then we bail out here */
+    if (next_mfact < 0.05 || next_mfact > 0.95) return;
+
+    /* Set the master / stack factor to the new value */
+    mfact = next_mfact;
+
+    /* This makes a call to arrange so that the tiled windows are resized and repositioned
+     * following the change to the master / stack factor. In principle this could have been a
+     * call directly to the tile function as all that is needed is for the clients to be tiled
+     * again.
+     *
+     * The call to arrange is a catch all that can prevent obscure issues and the performance
+     * overhead is negligible.
+     */
+    arrange(m);
+}
+
+/* User function to spawn a command
+ *
+ * This forks a new process and executes the given command. The child process is set up
+ * with its own session and default signal handlers so programs start cleanly.
+ *
+ * @called_from seat_action when a spawn key binding is triggered
+ */
+void spawn(const char* const* argv)
+{
+    struct sigaction sa;
+
+    /* Bail if no command provided */
+    if (!argv || !argv[0])
+        return;
+
+    /* This call to fork creates a new (duplicate) process of the current process.
+     *
+     * For the parent process, fork() returns the child's PID and we return immediately.
+     * For the child process, fork() returns 0 and we enter the if statement.
+     */
+    if (fork() == 0) {
+        /* Close the Wayland display connection before proceeding. The child inherits
+         * the parent's file descriptors and we don't want the child holding onto the
+         * Wayland connection. */
+        if (wm.display)
+            close(wl_display_get_fd(wm.display));
+
+        /* The call to setsid creates a new session and sets the process group ID. This is
+         * needed because a child created via fork inherits its parent's session ID and we
+         * need our own because this session ID will be preserved across the execvp call. */
+        setsid();
+
+        /* This restores SIGCHLD sighandler to default before spawning a program.
+         *
+         * From sigaction(2):
+         * A child created via fork(2) inherits a copy of its parent's signal dispositions.
+         * During an execve(2), the dispositions of handled signals are reset to the default;
+         * the dispositions of ignored signals are left unchanged.
+         *
+         * The reason why this is needed is that some programs would not start due to inheriting
+         * the signal handler of tinyrwm which ignores SIGCHLD. */
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
+        sa.sa_handler = SIG_DFL;
+        sigaction(SIGCHLD, &sa, NULL);
+
+        /* The execvp causes the program that is currently being run (tinyrwm in this case) to
+         * be replaced with a new program and with a newly initialised stack, heap and data
+         * segments. If this is successful then this is the last thing this process does in
+         * the tinyrwm code. */
+        execvp(argv[0], (char* const*)argv);
+
+        /* If the execvp fails for whatever reason, then we are still here executing tinyrwm
+         * code. So we print an error and call exit to ensure that this process stops running. */
+        fprintf(stderr, "tinyrwm: execvp '%s' failed: %s\n", argv[0], strerror(errno));
+        exit(1);
+    }
+}
+
 static void seat_pointer_move(struct Seat* seat, struct Window* window)
 {
     seat_focus(seat, window);
@@ -1249,6 +1351,9 @@ int main(void)
         fprintf(stderr, "failed to connect to Wayland server\n");
         return 1;
     }
+
+    // Store display in global state for spawn() to access
+    wm.display = display;
 
     // Avoid passing WAYLAND_DEBUG on to our children.
     // It only matters if it's set when the display is created.
