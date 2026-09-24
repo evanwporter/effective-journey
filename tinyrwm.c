@@ -323,7 +323,8 @@ void arrange(struct Output* m)
     if (!m) return;
 
     // Set the layout symbol from the current layout
-    if (m->lt && m->lt->symbol) strncpy(m->ltsymbol, m->lt->symbol, sizeof m->ltsymbol);
+    if (m->lt && m->lt->symbol)
+        snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s", m->lt->symbol);
 
     // Call the layout's arrange function if it has one
     // (NULL means floating layout - no automatic arrangement)
@@ -345,7 +346,7 @@ void arrange(struct Output* m)
  *
  * Master width is controlled by mfact (0.5 = 50% of screen)
  */
-static void tile(struct Output* m)
+void tile(struct Output* m)
 {
     /* Variables:
      *    i - iterator, represents number of clients processed
@@ -359,7 +360,8 @@ static void tile(struct Output* m)
      *         be tiled in the tile area)
      *    bw - border width
      */
-    unsigned int i, n, h, mw, my, ty, bw;
+    unsigned int i, n;
+    int h, mw, my, ty, bw;
     struct Window* w;
 
     /* This loop just counts the number of tiled clients storing the count in the variable n. */
@@ -576,8 +578,8 @@ static void window_manage(struct Window* window)
 
 static void xkb_binding_handle_pressed(void* data, struct river_xkb_binding_v1* obj)
 {
-    const Key* key = data;
-    key->func(key->seat, &key->arg);
+    struct XkbBinding* binding = data;
+    binding->func(binding->seat, &binding->arg);
 }
 
 static void xkb_binding_handle_released(void* data, struct river_xkb_binding_v1* obj)
@@ -602,13 +604,11 @@ static void xkb_binding_create(struct Seat* seat, const Key* key)
     binding->obj =
         river_xkb_bindings_v1_get_xkb_binding(xkb_bindings_v1, seat->obj, key->keysym, key->mod);
 
-    // Copy the key definition (including function pointer and argument)
-    binding->key = *key;
+    binding->seat = seat;
+    binding->func = key->func;
+    binding->arg = key->arg;
 
-    // Set the seat pointer in the embedded key
-    binding->key.seat = seat;
-
-    river_xkb_binding_v1_add_listener(binding->obj, &river_xkb_binding_listener, &binding->key);
+    river_xkb_binding_v1_add_listener(binding->obj, &river_xkb_binding_listener, binding);
     river_xkb_binding_v1_enable(binding->obj);
 
     wl_list_insert(seat->xkb_bindings.prev, &binding->link);
@@ -816,7 +816,7 @@ static void seat_focus(struct Seat* seat, struct Window* window)
  * inc > 0 moves forward (next window), inc < 0 moves backward (previous window).
  * wl_list is a circular doubly-linked list, so wrapping is automatic.
  */
-static void focusstack(struct Seat* seat, int inc)
+void focusstack(struct Seat* seat, int inc)
 {
     struct Window* w = NULL;
     struct wl_list* link;
@@ -886,7 +886,7 @@ static void focusstack(struct Seat* seat, int inc)
  * The value is clamped to the range [0.05, 0.95] to ensure both master and stack areas
  * remain usable.
  */
-static void setmfact(struct Output* m, float f)
+void setmfact(struct Output* m, float f)
 {
     float next_mfact; /* The next factor value */
 
@@ -1309,7 +1309,7 @@ static void wm_handle_output(void* data,
 
     // Initialize layout symbol from the default layout
     if (output->lt && output->lt->symbol)
-        strncpy(output->ltsymbol, output->lt->symbol, sizeof output->ltsymbol);
+        snprintf(output->ltsymbol, sizeof output->ltsymbol, "%s", output->lt->symbol);
 
     river_output_v1_add_listener(output->obj, &river_output_listener, output);
 

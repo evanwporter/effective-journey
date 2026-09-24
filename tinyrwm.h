@@ -19,8 +19,10 @@ struct river_pointer_binding_v1;
 struct river_window_manager_v1;
 struct river_xkb_bindings_v1;
 
-/* Forward declare Output for Layout */
+/* Forward declarations for internal data types. */
 struct Output;
+struct TreeNode;
+typedef struct Output Output;
 
 /* Layout structure - defines a window layout */
 typedef struct
@@ -176,7 +178,7 @@ typedef struct Workspace
     int topbar;
 
     /// The tag root tree node
-    TreeNode* root;
+    struct TreeNode* root;
 } Workspace;
 
 /* The definition of a rule, used in the configuration file when setting up client rules.
@@ -256,7 +258,9 @@ enum Action
 struct XkbBinding
 {
     struct river_xkb_binding_v1* obj;
-    Key key;  // Embedded key definition with function pointer
+    struct Seat* seat;
+    void (*func)(struct Seat*, const Arg*);
+    Arg arg;
     struct wl_list link;
 };
 
@@ -341,6 +345,13 @@ void detachstack(struct Window* w);
 void resize(struct Window* w, int x, int y, int width, int height, int bw);
 void arrange(struct Output* m);
 void spawn(const char* const* argv);
+
+/* Keybinding callbacks, defined in commands.c. */
+void spawn_terminal(struct Seat* seat, const Arg* arg);
+void exit_wm(struct Seat* seat, const Arg* arg);
+void close_window(struct Seat* seat, const Arg* arg);
+void focus_stack(struct Seat* seat, const Arg* arg);
+void set_master_fact(struct Seat* seat, const Arg* arg);
 
 /* Layout functions */
 void tile(struct Output* m);

@@ -26,7 +26,7 @@ CC := gcc
 WAYLAND_SCANNER := wayland-scanner
 
 # Build flags
-CFLAGS := -std=c11 -pedantic -Wall -Wextra -Wno-unused-parameter
+CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -Wall -Wextra -Wno-unused-parameter
 CFLAGS += -O2 -march=native
 CFLAGS += -I$(BUILD_DIR)
 

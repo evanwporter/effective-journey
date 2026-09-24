@@ -6,8 +6,6 @@
 #include <stddef.h>
 #include <river-window-management-v1-client-protocol.h>
 
-#include "config.h"
-
 /* Keybinding action functions
  * These are the functions called by keybindings defined in config.h
  */
