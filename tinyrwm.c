@@ -344,7 +344,7 @@ void arrange(struct Output* m)
  *
  * Master width is controlled by mfact (0.5 = 50% of screen)
  */
-static void tile(struct Output* m)
+void tile(struct Output* m)
 {
     /* Variables:
      *    i - iterator, represents number of clients processed
@@ -551,8 +551,8 @@ static void window_manage(struct Window* window)
 
 static void xkb_binding_handle_pressed(void* data, struct river_xkb_binding_v1* obj)
 {
-    const Key* key = data;
-    key->func(key->seat, &key->arg);
+    struct XkbBinding* binding = data;
+    binding->func(binding->seat, &binding->arg);
 }
 
 static void xkb_binding_handle_released(void* data, struct river_xkb_binding_v1* obj)
@@ -577,13 +577,11 @@ static void xkb_binding_create(struct Seat* seat, const Key* key)
     binding->obj =
         river_xkb_bindings_v1_get_xkb_binding(xkb_bindings_v1, seat->obj, key->keysym, key->mod);
 
-    // Copy the key definition (including function pointer and argument)
-    binding->key = *key;
+    binding->seat = seat;
+    binding->func = key->func;
+    binding->arg = key->arg;
 
-    // Set the seat pointer in the embedded key
-    binding->key.seat = seat;
-
-    river_xkb_binding_v1_add_listener(binding->obj, &river_xkb_binding_listener, &binding->key);
+    river_xkb_binding_v1_add_listener(binding->obj, &river_xkb_binding_listener, binding);
     river_xkb_binding_v1_enable(binding->obj);
 
     wl_list_insert(seat->xkb_bindings.prev, &binding->link);
@@ -791,7 +789,7 @@ static void seat_focus(struct Seat* seat, struct Window* window)
  * inc > 0 moves forward (next window), inc < 0 moves backward (previous window).
  * wl_list is a circular doubly-linked list, so wrapping is automatic.
  */
-static void focusstack(struct Seat* seat, int inc)
+void focusstack(struct Seat* seat, int inc)
 {
     struct Window* w = NULL;
     struct wl_list* link;
@@ -861,7 +859,7 @@ static void focusstack(struct Seat* seat, int inc)
  * The value is clamped to the range [0.05, 0.95] to ensure both master and stack areas
  * remain usable.
  */
-static void setmfact(struct Output* m, float f)
+void setmfact(struct Output* m, float f)
 {
     float next_mfact; /* The next factor value */
 
