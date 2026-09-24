@@ -23,9 +23,10 @@ struct river_xkb_bindings_v1;
 struct Output;
 
 /* Layout structure - defines a window layout */
-typedef struct {
-    const char *symbol;                  /* Symbol to display (e.g., "[]=", "><>") */
-    void (*arrange)(struct Output *);    /* Layout function pointer */
+typedef struct
+{
+    const char* symbol;              /* Symbol to display (e.g., "[]=", "><>") */
+    void (*arrange)(struct Output*); /* Layout function pointer */
 } Layout;
 
 /* Output structure */
@@ -205,6 +206,38 @@ typedef struct
     char* icon;
 } Rule;
 
+/* Argument union for keybindings and commands
+ *
+ * This union allows passing different types of arguments to functions:
+ *   i  - signed integer (e.g., +1/-1 for incrementing/decrementing)
+ *   ui - unsigned integer (e.g., tag masks)
+ *   f  - float (e.g., mfact adjustments)
+ *   v  - void pointer (e.g., command arrays, layout pointers)
+ */
+typedef union
+{
+    int i;
+    unsigned int ui;
+    float f;
+    const void* v;
+} Arg;
+
+/* Key binding structure
+ *
+ * Defines a keyboard shortcut with:
+ *   mod    - modifier keys (MODKEY, ShiftMask, etc.)
+ *   keysym - the key (XKB_KEY_Return, XKB_KEY_q, etc.)
+ *   func   - function to call when key is pressed
+ *   arg    - argument to pass to the function
+ */
+typedef struct
+{
+    uint32_t mod;
+    uint32_t keysym;
+    void (*func)(struct Seat*, const Arg*);
+    const Arg arg;
+} Key;
+
 /* Action enumeration for key/pointer bindings */
 enum Action
 {
@@ -217,12 +250,13 @@ enum Action
     ACTION_EXIT,
 };
 
-/* XKB (keyboard) binding structure */
+/* XKB (keyboard) binding structure
+ * This now wraps the Key definition from config and adds the River protocol object
+ */
 struct XkbBinding
 {
     struct river_xkb_binding_v1* obj;
-    struct Seat* seat;
-    enum Action action;
+    Key key;  // Embedded key definition with function pointer
     struct wl_list link;
 };
 
@@ -288,10 +322,10 @@ struct WindowManager
 };
 
 /* Macros */
-#define HEIGHT(w)  ((w)->h + 2 * (w)->bw)
-#define WIDTH(w)   ((w)->w + 2 * (w)->bw)
-#define MIN(A, B)  ((A) < (B) ? (A) : (B))
-#define MAX(A, B)  ((A) > (B) ? (A) : (B))
+#define HEIGHT(w) ((w)->h + 2 * (w)->bw)
+#define WIDTH(w) ((w)->w + 2 * (w)->bw)
+#define MIN(A, B) ((A) < (B) ? (A) : (B))
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 /* Global variables */
 extern struct WindowManager wm;

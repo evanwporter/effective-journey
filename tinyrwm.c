@@ -551,8 +551,8 @@ static void window_manage(struct Window* window)
 
 static void xkb_binding_handle_pressed(void* data, struct river_xkb_binding_v1* obj)
 {
-    struct XkbBinding* binding = data;
-    binding->seat->pending_action = binding->action;
+    const Key* key = data;
+    key->func(key->seat, &key->arg);
 }
 
 static void xkb_binding_handle_released(void* data, struct river_xkb_binding_v1* obj)
@@ -571,17 +571,19 @@ static void xkb_binding_destroy(struct XkbBinding* binding)
     free(binding);
 }
 
-static void xkb_binding_create(struct Seat* seat,
-                               uint32_t mods,
-                               xkb_keysym_t keysym,
-                               enum Action action)
+static void xkb_binding_create(struct Seat* seat, const Key* key)
 {
     struct XkbBinding* binding = ecalloc(1, sizeof(struct XkbBinding));
-    binding->obj = river_xkb_bindings_v1_get_xkb_binding(xkb_bindings_v1, seat->obj, keysym, mods);
-    binding->seat = seat;
-    binding->action = action;
+    binding->obj =
+        river_xkb_bindings_v1_get_xkb_binding(xkb_bindings_v1, seat->obj, key->keysym, key->mod);
 
-    river_xkb_binding_v1_add_listener(binding->obj, &river_xkb_binding_listener, binding);
+    // Copy the key definition (including function pointer and argument)
+    binding->key = *key;
+
+    // Set the seat pointer in the embedded key
+    binding->key.seat = seat;
+
+    river_xkb_binding_v1_add_listener(binding->obj, &river_xkb_binding_listener, &binding->key);
     river_xkb_binding_v1_enable(binding->obj);
 
     wl_list_insert(seat->xkb_bindings.prev, &binding->link);
@@ -1026,11 +1028,15 @@ static void seat_manage(struct Seat* seat)
     if (seat->new)
     {
         seat->new = false;
+
+        // Create keybindings from config.h
+        for (size_t i = 0; i < sizeof(keybinds) / sizeof(keybinds[0]); i++)
+        {
+            xkb_binding_create(seat, &keybinds[i]);
+        }
+
+        // Set up mouse bindings for moving and resizing windows
         const uint32_t super = RIVER_SEAT_V1_MODIFIERS_MOD4;
-        xkb_binding_create(seat, super, XKB_KEY_space, ACTION_SPAWN_FOOT);
-        xkb_binding_create(seat, super, XKB_KEY_q, ACTION_CLOSE);
-        xkb_binding_create(seat, super, XKB_KEY_n, ACTION_FOCUS_NEXT);
-        xkb_binding_create(seat, super, XKB_KEY_Escape, ACTION_EXIT);
         pointer_binding_create(seat, super, BTN_LEFT, ACTION_MOVE);
         pointer_binding_create(seat, super, BTN_RIGHT, ACTION_RESIZE);
     }
